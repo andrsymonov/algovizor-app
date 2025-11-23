@@ -8,8 +8,8 @@ RUN rm /usr/share/nginx/html/index.html
 COPY index.html /usr/share/nginx/html/
 COPY pricing_page.md /usr/share/nginx/html/
 
-# Порт, который будет слушать Nginx (должен совпадать с настройками Railway)
-EXPOSE 8080
+# Порт Nginx по умолчанию (80)
+EXPOSE 80
 
-# Запускаем Nginx и явно указываем ему слушать порт 8080
-CMD ["nginx", "-g", "daemon off; listen 8080;"]
+# Запускаем Nginx с чистой командой (без 'listen')
+CMD ["nginx", "-g", "daemon off;"]
