@@ -709,12 +709,19 @@
         window.initDatePickers = () => {
             const now = new Date();
             const threeYearsAgo = new Date();
+            
+            // Устанавливаем дату начала на 3 года назад
             threeYearsAgo.setFullYear(now.getFullYear() - 3);
-
+            
             const formatDate = (date) => date.toISOString().split('T')[0];
-
+            
             document.getElementById('endDate').value = formatDate(now);
             document.getElementById('startDate').value = formatDate(threeYearsAgo);
+            
+            // Устанавливаем максимальное значение для обоих полей как ТЕКУЩИЙ ДЕНЬ
+            // Это гарантирует, что нельзя выбрать дату в будущем, но можно выбрать любое прошлое
+            document.getElementById('startDate').setAttribute('max', formatDate(now));
+            document.getElementById('endDate').setAttribute('max', formatDate(now));
         };
 
         window.loadPricingContent = () => {
