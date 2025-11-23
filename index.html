@@ -682,9 +682,7 @@
                 });
             }
 
-            window.setLanguage(window.currentLang);
-            window.initDatePickers();
-            window.loadPricingContent();
+            // Инициализация языка и дат теперь в window.onload, чтобы выполниться после полной загрузки DOM
         });
 
         // --- UTILS ---
@@ -715,13 +713,15 @@
             
             const formatDate = (date) => date.toISOString().split('T')[0];
             
-            document.getElementById('endDate').value = formatDate(now);
-            document.getElementById('startDate').value = formatDate(threeYearsAgo);
-            
             // Устанавливаем максимальное значение для обоих полей как ТЕКУЩИЙ ДЕНЬ
-            // Это гарантирует, что нельзя выбрать дату в будущем, но можно выбрать любое прошлое
-            document.getElementById('startDate').setAttribute('max', formatDate(now));
-            document.getElementById('endDate').setAttribute('max', formatDate(now));
+            const dateInputMax = formatDate(now);
+            
+            document.getElementById('startDate').setAttribute('max', dateInputMax);
+            document.getElementById('endDate').setAttribute('max', dateInputMax);
+
+            // Устанавливаем значения по умолчанию
+            document.getElementById('endDate').value = dateInputMax;
+            document.getElementById('startDate').value = formatDate(threeYearsAgo);
         };
 
         window.loadPricingContent = () => {
@@ -1378,9 +1378,10 @@
             }
         };
 
-        // Initialize default language and date pickers on load
+        // Инициализация языка и дат при полной загрузке DOM
         window.onload = () => {
-            window.setLanguage('ru'); // Start in Russian as per user's current context
+            window.setLanguage('ru'); // 1. Устанавливаем Русский язык по умолчанию
+            window.initDatePickers(); // 2. Устанавливаем даты по умолчанию
         };
     </script>
 </body>
