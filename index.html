@@ -6,6 +6,11 @@
     <title>AlgoVizor - Backtesting & Optimization</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+
     <style>
         .chart-container {
             position: relative;
@@ -406,7 +411,7 @@
         let app, db, auth;
 
         // Основная функция инициализации, которая ждет загрузки всех скриптов
-        async function initializeFirebase() {
+        async function initializeFirebaseAndUI() {
             try {
                 // Загружаем все необходимые скрипты
                 await loadScript(FIREBASE_APP_URL);
@@ -429,8 +434,7 @@
 
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+                
                 if (!firebaseConfig) {
                     console.error("Firebase configuration is missing.");
                     document.getElementById('statusMessage').textContent = "ERROR: Firebase config missing.";
@@ -479,7 +483,7 @@
                 document.getElementById('statusMessage').textContent = "ERROR: Could not load Firebase SDKs. Check your network or configuration.";
             }
 
-            // --- Запуск инициализации UI после попытки инициализации Firebase ---
+            // --- Гарантированный Запуск инициализации UI ---
             window.setLanguage('ru');
             window.initDatePickers();
             window.loadPricingContent();
@@ -488,4 +492,1019 @@
         // Utility to get the user-specific document path
         const getUserDocRef = (userId) => {
             if (!db || typeof doc === 'undefined') return null; // Защита от отсутствия DB
-            return doc(db, `artifacts/${appId}/users/${userId}/
+            return doc(db, `artifacts/${appId}/users/${userId}/limits`, 'daily_usage');
+        };
+
+        // --- TRANSLATIONS (i18n) ---
+        window.translations = {
+            en: {
+                language_label: "Language:",
+                account_button: "Account",
+                status_title: "User Status",
+                user_id_label: "User ID:",
+                tier_label: "Subscription Tier:",
+                tests_remaining_label: "Tests Remaining:",
+                upgrade_button: "Upgrade Plan",
+                backtest_params_title: "Backtest Parameters",
+                ticker_label: "Ticker (e.g., AAPL):",
+                timeframe_label: "Timeframe:",
+                strategy_label: "Strategy:",
+                custom_code_option: "(PRO) Custom Code",
+                ema_params_title: "EMA Crossover Settings:",
+                date_range_title: "Date Range:",
+                start_date_label: "Start Date:",
+                end_date_label: "End Date:",
+                telegram_alerts_title: "Telegram Alerts",
+                telegram_info: "Receive instant signals (Buy/Sell) to your Telegram chat.",
+                send_test_signal: "Send Test Signal",
+                status_initial: "Enter parameters and run Backtest.",
+                run_backtest_button: "Run Backtest",
+                test_cost_label: "Test",
+                run_optimization_button: "Run Optimization",
+                chart_title: "Price & Equity Chart",
+                loading_data: "Loading and calculating data...",
+                results_title: "Backtest Results",
+                net_return_label: "Net Return:",
+                max_drawdown_label: "Max Drawdown:",
+                trades_label: "Total Trades:",
+                optimization_modal_title: "Strategy Optimization (PRO)",
+                optimization_info: "Set the range and step size. The system will test all combinations to find the top 3 results based on Net Return.",
+                optimization_range_title: "Optimization Range:",
+                fast_ema_min: "Fast EMA Min:",
+                fast_ema_max: "Fast EMA Max:",
+                opt_step: "Step:",
+                slow_ema_min: "Slow EMA Min:",
+                slow_ema_max: "Slow EMA Max:",
+                opt_step_filler: "Step:",
+                start_optimization: "Start Optimization",
+                optimizing_status: "Running combinations...",
+                top_results_title: "Top 3 Results:",
+                optimization_placeholder: "Run optimization to see results.",
+                close_button: "Close",
+                subscription_modal_title: "Upgrade Your Plan",
+                subscription_message_limit: "You have reached your daily limit of {limit} free tests.",
+                subscription_message_pro: "Your current {tier} plan gives you {limit} tests per day.",
+                account_details_title: "Account Details",
+                logged_in_as: "Logged in as (Firebase User ID):",
+                current_tier_display: "Current Subscription Tier:",
+                daily_resets_at: "Daily test count resets at midnight UTC.",
+                view_all_plans: "View All Plans (ULTRA included)",
+                api_error: "API Error. Check Ticker, Timeframe, or API Key.",
+                limit_exceeded: "Daily test limit exceeded. Please upgrade.",
+                custom_code_disabled: "(PRO required) Custom Code is disabled.",
+                optimization_disabled: "Optimization is only available for PRO/ULTRA plans.",
+                telegram_error: "Telegram send error: Check Chat ID and Token.",
+                telegram_success: "Test signal sent successfully!",
+                telegram_buy: "BUY Signal for {ticker}!",
+                telegram_sell: "SELL Signal for {ticker}!",
+            },
+            ru: {
+                language_label: "Язык:",
+                account_button: "Аккаунт",
+                status_title: "Статус Пользователя",
+                user_id_label: "ID Пользователя:",
+                tier_label: "Тарифный план:",
+                tests_remaining_label: "Осталось тестов:",
+                upgrade_button: "Обновить Тариф",
+                backtest_params_title: "Параметры Бэктеста",
+                ticker_label: "Тикер (например, AAPL):",
+                timeframe_label: "Таймфрейм:",
+                strategy_label: "Стратегия:",
+                custom_code_option: "(PRO) Кастомный Код",
+                ema_params_title: "Настройки EMA Crossover:",
+                date_range_title: "Временной диапазон:",
+                start_date_label: "Дата начала:",
+                end_date_label: "Дата окончания:",
+                telegram_alerts_title: "Telegram Уведомления",
+                telegram_info: "Получайте мгновенные сигналы (Покупка/Продажа) в свой чат Telegram.",
+                send_test_signal: "Отправить тестовый сигнал",
+                status_initial: "Введите параметры и запустите Бэктест.",
+                run_backtest_button: "Запустить Бэктест",
+                test_cost_label: "Тест",
+                run_optimization_button: "Запустить Оптимизацию",
+                chart_title: "График Цены и Капитала",
+                loading_data: "Загрузка и расчет данных...",
+                results_title: "Результаты Бэктеста",
+                net_return_label: "Чистая Доходность:",
+                max_drawdown_label: "Макс. Просадка:",
+                trades_label: "Всего Сделок:",
+                optimization_modal_title: "Оптимизация Стратегии (PRO)",
+                optimization_info: "Установите диапазон и шаг. Система протестирует все комбинации и найдет топ-3 результата по чистой доходности.",
+                optimization_range_title: "Диапазон Оптимизации:",
+                fast_ema_min: "Быстрая EMA Мин:",
+                fast_ema_max: "Быстрая EMA Макс:",
+                opt_step: "Шаг:",
+                slow_ema_min: "Медленная EMA Мин:",
+                slow_ema_max: "Медленная EMA Макс:",
+                opt_step_filler: "Шаг:",
+                start_optimization: "Начать Оптимизацию",
+                optimizing_status: "Выполнение комбинаций...",
+                top_results_title: "Топ-3 Результата:",
+                optimization_placeholder: "Запустите оптимизацию, чтобы увидеть результаты.",
+                close_button: "Закрыть",
+                subscription_modal_title: "Обновить Ваш План",
+                subscription_message_limit: "Вы достигли дневного лимита в {limit} бесплатных тестов.",
+                subscription_message_pro: "Ваш текущий план {tier} дает вам {limit} тестов в день.",
+                account_details_title: "Детали Аккаунта",
+                logged_in_as: "Вы вошли как (ID Пользователя Firebase):",
+                current_tier_display: "Текущий Тарифный План:",
+                daily_resets_at: "Счетчик тестов сбрасывается ежедневно в полночь по UTC.",
+                view_all_plans: "Посмотреть все планы (включая ULTRA)",
+                api_error: "Ошибка API. Проверьте Тикер, Таймфрейм или API Ключ.",
+                limit_exceeded: "Дневной лимит тестов превышен. Обновите тариф.",
+                custom_code_disabled: "(Требуется PRO) Кастомный код отключен.",
+                optimization_disabled: "Оптимизация доступна только для планов PRO/ULTRA.",
+                telegram_error: "Ошибка отправки Telegram: Проверьте Chat ID и Токен.",
+                telegram_success: "Тестовый сигнал успешно отправлен!",
+                telegram_buy: "Сигнал ПОКУПКА для {ticker}!",
+                telegram_sell: "Сигнал ПРОДАЖА для {ticker}!",
+            }
+        };
+
+        const setupUserListener = (userId) => {
+            if (!auth || !db || typeof getDoc === 'undefined') {
+                 document.getElementById('statusMessage').textContent = "INFO: Firebase is not fully initialized. Using default FREE limits.";
+                 return;
+            }
+            const userDocRef = getUserDocRef(userId);
+            if (!userDocRef) return; // Дополнительная проверка
+
+            // Initial check and setup if document doesn't exist
+            getDoc(userDocRef).then(docSnap => {
+                if (!docSnap.exists()) {
+                    // Initialize the document for a new user
+                    const initialData = {
+                        tier: 'FREE',
+                        testsUsed: 0,
+                        lastReset: new Date().toISOString()
+                    };
+                    return setDoc(userDocRef, initialData).then(() => initialData);
+                }
+                return docSnap.data();
+            }).then(data => {
+                // Now set up the real-time listener
+                onSnapshot(userDocRef, (doc) => {
+                    const data = doc.data();
+                    if (!data) return;
+
+                    const now = new Date();
+                    const lastResetDate = new Date(data.lastReset);
+                    const isNewDay = now.getUTCDate() !== lastResetDate.getUTCDate() || now.getUTCMonth() !== lastResetDate.getUTCMonth() || now.getUTCFullYear() !== lastResetDate.getUTCFullYear();
+                    let testsUsed = data.testsUsed || 0;
+                    let tier = data.tier || 'FREE';
+
+                    if (isNewDay && tier !== 'PRO' && tier !== 'ULTRA') {
+                        // Reset count for FREE/STANDARD users
+                        testsUsed = 0;
+                        updateDoc(userDocRef, { testsUsed: 0, lastReset: new Date().toISOString() }).catch(console.error);
+                    } else if (isNewDay && (tier === 'PRO' || tier === 'ULTRA')) {
+                        // Just update reset time for PRO/ULTRA without changing count (always Infinity)
+                        updateDoc(userDocRef, { lastReset: new Date().toISOString() }).catch(console.error);
+                    }
+
+                    updateUIBasedOnTier(tier, testsUsed);
+                }, (error) => {
+                    console.error("Firestore Listener Error:", error);
+                    document.getElementById('statusMessage').textContent = "ERROR: Cannot connect to Firebase limits.";
+                });
+            }).catch(error => {
+                console.error("Initial Doc Check/Setup Error:", error);
+                document.getElementById('statusMessage').textContent = "ERROR: Failed to initialize user limits.";
+            });
+        };
+
+        window.updateUIBasedOnTier = (tier, testsUsed) => {
+            const T = window.translations[window.currentLang];
+            window.userTier = tier;
+            let maxTests, optimizationEnabled, customCodeEnabled;
+
+            if (tier === 'FREE') {
+                maxTests = 3;
+                optimizationEnabled = false;
+                customCodeEnabled = false;
+            } else if (tier === 'STANDARD') {
+                maxTests = 20;
+                optimizationEnabled = false;
+                customCodeEnabled = false;
+            } else if (tier === 'PRO' || tier === 'ULTRA') {
+                maxTests = Infinity;
+                optimizationEnabled = true;
+                customCodeEnabled = true;
+            } else {
+                maxTests = 3;
+                optimizationEnabled = false;
+                customCodeEnabled = false;
+            }
+
+            window.maxTests = maxTests;
+            const remaining = maxTests === Infinity ? T['tests_remaining_label_unlimited'] || 'UNLIMITED' : Math.max(0, maxTests - testsUsed);
+
+            // 1. Update Status Card
+            document.getElementById('tierDisplay').textContent = tier;
+            document.getElementById('testsUsedDisplay').textContent = remaining;
+            document.getElementById('accountTier').textContent = tier;
+
+            // 2. Control Buttons & Inputs
+            const isFreeOrStandard = tier === 'FREE' || tier === 'STANDARD';
+
+            // Backtest is always available until limit is hit
+            const canRun = (maxTests === Infinity || testsUsed < maxTests);
+            document.getElementById('runBacktestButton').disabled = !canRun;
+            document.getElementById('backtestCostDisplay').textContent = isFreeOrStandard ? '1' : T['test_cost_label_free'] || 'FREE';
+
+            // Optimization button
+            document.getElementById('runOptimizationButton').disabled = !optimizationEnabled;
+
+            // Custom Code option
+            const customCodeOption = document.getElementById('strategySelect').querySelector('option[value="custom_code"]');
+            if (customCodeOption) {
+                customCodeOption.disabled = !customCodeEnabled;
+                if(customCodeEnabled) {
+                    customCodeOption.textContent = T['custom_code_option'].replace('(PRO)', '');
+                } else {
+                    customCodeOption.textContent = T['custom_code_option'];
+                    // If user is not PRO/ULTRA, switch them back to EMA if they were on Custom Code
+                    if(document.getElementById('strategySelect').value === 'custom_code') {
+                        document.getElementById('strategySelect').value = 'ema_crossover';
+                        window.toggleStrategyInput();
+                    }
+                }
+            }
+        };
+
+        window.toggleModal = (id) => {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+        };
+
+        window.toggleStrategyInput = () => {
+            const strategy = document.getElementById('strategySelect').value;
+            document.getElementById('emaParams').classList.toggle('hidden', strategy !== 'ema_crossover');
+            document.getElementById('customCode').classList.toggle('hidden', strategy !== 'custom_code');
+
+            if (strategy === 'custom_code' && (window.userTier !== 'PRO' && window.userTier !== 'ULTRA')) {
+                const T = window.translations[window.currentLang];
+                alert(T['custom_code_disabled']);
+                document.getElementById('strategySelect').value = 'ema_crossover';
+                window.toggleStrategyInput();
+            }
+        };
+
+        window.initDatePickers = () => {
+            const now = new Date();
+            const threeYearsAgo = new Date();
+            
+            // Устанавливаем дату начала на 3 года назад
+            threeYearsAgo.setFullYear(now.getFullYear() - 3);
+            
+            const formatDate = (date) => date.toISOString().split('T')[0];
+            
+            // Устанавливаем максимальное значение для обоих полей как ТЕКУЩИЙ ДЕНЬ
+            const dateInputMax = formatDate(now);
+            
+            const startDateEl = document.getElementById('startDate');
+            const endDateEl = document.getElementById('endDate');
+
+            if (startDateEl && endDateEl) {
+                 startDateEl.setAttribute('max', dateInputMax);
+                 endDateEl.setAttribute('max', dateInputMax);
+
+                 // Устанавливаем значения по умолчанию
+                 endDateEl.value = dateInputMax;
+                 startDateEl.value = formatDate(threeYearsAgo);
+            }
+        };
+
+        window.loadPricingContent = () => {
+            // Load pricing_page.md content into the modal
+            fetch('pricing_page.md')
+                .then(response => {
+                    if (!response.ok) throw new Error("Could not load pricing page.");
+                    return response.text();
+                })
+                .then(text => {
+                    // Simple conversion of Markdown to HTML (for demonstration)
+                    const htmlContent = window.markdownToHtml(text);
+                    document.getElementById('pricingContent').innerHTML = htmlContent;
+                })
+                .catch(error => {
+                    document.getElementById('pricingContent').innerHTML = `<p class="text-red-500">${window.translations[window.currentLang]['api_error']} (Pricing page load failed)</p>`;
+                    console.error("Error loading pricing page:", error);
+                });
+        };
+
+        window.markdownToHtml = (markdown) => {
+            // Very simple Markdown to HTML conversion for the modal
+            return markdown
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*)\*/gim, '<em>$1</em>')
+                .replace(/\|([^|]+)\|/g, (match, p1) => `<span style="padding: 0 10px;">${p1.trim()}</span>`);
+            // Note: Full HTML rendering for the pricing page is handled by direct injection of the styled HTML from pricing_page.md
+        };
+
+        // --- DATA FETCHING ---
+        window.fetchRealData = async (ticker, timeframe, startDate, endDate) => {
+            const T = window.translations[window.currentLang];
+            // This key is required to be passed by the user, we use a placeholder/demo key for function testing
+            const apiKey = 'X1V949310TEY5ES2'; // Placeholder or user-provided key if we had an input for it
+            const BASE_URL = 'https://www.alphavantage.co/query?';
+
+            let functionCall;
+            let intervalParam = '';
+
+            if (timeframe === 'Daily') {
+                functionCall = 'TIME_SERIES_DAILY_ADJUSTED';
+            } else {
+                // Intraday for 30min, 60min. We treat 4h as 60min data
+                functionCall = 'TIME_SERIES_INTRADAY';
+                // Alpha Vantage uses '30min', '60min'. We use '60min' for 4h as a proxy.
+                intervalParam = `&interval=${timeframe === '4h' ? '60min' : timeframe}`;
+            }
+
+            const url = `${BASE_URL}function=${functionCall}&symbol=${ticker}&outputsize=full${intervalParam}&apikey=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("API call failed.");
+
+                const data = await response.json();
+
+                if (data["Error Message"] || data["Note"]) {
+                    throw new Error(data["Error Message"] || data["Note"] || "API returned an error.");
+                }
+
+                let timeSeriesKey;
+                if (timeframe === 'Daily') {
+                    timeSeriesKey = "Time Series (Daily)";
+                } else {
+                    timeSeriesKey = `Time Series (${timeframe === '4h' ? '60min' : timeframe})`;
+                }
+
+                const rawData = data[timeSeriesKey];
+
+                if (!rawData) throw new Error("No time series data found in API response.");
+
+                const processedData = [];
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+
+                // Process and filter data
+                for (const dateStr in rawData) {
+                    const date = new Date(dateStr);
+                    if (date >= start && date <= end) {
+                        const item = rawData[dateStr];
+                        processedData.push({
+                            date: dateStr,
+                            price: parseFloat(item['4. close']),
+                            volume: parseInt(item['5. volume'])
+                        });
+                    }
+                }
+
+                // Sort by date ascending
+                processedData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                if (processedData.length < 2) throw new Error("Not enough data for the selected range.");
+
+                return processedData;
+
+            } catch (error) {
+                console.error("Data Fetching Error:", error);
+                document.getElementById('statusMessage').textContent = `${T['api_error']}: ${error.message}`;
+                return null;
+            }
+        };
+
+        // --- TECHNICAL INDICATORS & STRATEGY EXECUTION ---
+        window.calculateEMA = (data, period, key = 'price') => {
+            const k = 2 / (period + 1);
+            let ema = [];
+            let sum = 0;
+
+            // Initial SMA for the first EMA value
+            for(let i = 0; i < period && i < data.length; i++) {
+                sum += data[i][key];
+            }
+
+            if (data.length >= period) {
+                ema.push(sum / period);
+            } else {
+                // Not enough data, fill with placeholders
+                for(let i = 0; i < data.length; i++) {
+                    ema.push(null);
+                }
+                return ema;
+            }
+
+            // Calculate subsequent EMAs
+            for (let i = period; i < data.length; i++) {
+                const previousEMA = ema[ema.length - 1];
+                const currentPrice = data[i][key];
+                const currentEMA = (currentPrice - previousEMA) * k + previousEMA;
+                ema.push(currentEMA);
+            }
+
+            // Pad the beginning with nulls to match the data length
+            return [...Array(period - 1).fill(null), ...ema];
+        };
+
+        window.executeStrategy = (data, fastPeriod, slowPeriod, strategyCode = null) => {
+            const processedData = data.map(d => ({ ...d }));
+
+            // 1. Calculate EMAs
+            const fastEMA = calculateEMA(processedData, fastPeriod);
+            const slowEMA = calculateEMA(processedData, slowPeriod);
+
+            // Combine indicators with data
+            const analysisData = processedData.map((d, i) => ({ ...d, fastEMA: fastEMA[i], slowEMA: slowEMA[i] }));
+
+            let equity = [1000]; // Starting capital
+            let trades = 0;
+            let inPosition = false;
+            let lastTradePrice = 0;
+            let buySignals = [];
+            let sellSignals = [];
+
+            const tradeData = {
+                fastEMA: fastEMA,
+                slowEMA: slowPeriod,
+                price: processedData.map(d => d.price),
+                date: processedData.map(d => d.date)
+            };
+
+            for (let i = 1; i < analysisData.length; i++) {
+                const prev = analysisData[i - 1];
+                const current = analysisData[i];
+
+                let buySignal = false;
+                let sellSignal = false;
+
+                if (strategyCode) {
+                    try {
+                        // Execute custom user code
+                        const userLogic = new Function('tradeData', 'i', strategyCode);
+                        const result = userLogic(tradeData, i);
+                        buySignal = result === 'BUY';
+                        sellSignal = result === 'SELL';
+                    } catch (e) {
+                        console.error("Custom Code Error:", e);
+                        // Fallback or just stop trading
+                        break;
+                    }
+                } else {
+                    // EMA Crossover Logic (Default)
+                    if (current.fastEMA > current.slowEMA && prev.fastEMA <= prev.slowEMA) {
+                        buySignal = true; // Fast crosses Slow upwards
+                    } else if (current.fastEMA < current.slowEMA && prev.fastEMA >= prev.slowEMA) {
+                        sellSignal = true; // Fast crosses Slow downwards
+                    }
+                }
+
+                let currentEquity = equity[equity.length - 1];
+
+                if (buySignal && !inPosition) {
+                    inPosition = true;
+                    lastTradePrice = current.price;
+                    trades++;
+                    buySignals.push({ x: current.date, y: current.price });
+                    window.sendTelegramSignal(document.getElementById('ticker').value, 'BUY');
+                } else if (sellSignal && inPosition) {
+                    // Close position: Calculate P&L
+                    const profitLossPercent = (current.price - lastTradePrice) / lastTradePrice;
+                    currentEquity = currentEquity * (1 + profitLossPercent);
+                    inPosition = false;
+                    sellSignals.push({ x: current.date, y: current.price });
+                    window.sendTelegramSignal(document.getElementById('ticker').value, 'SELL');
+                }
+
+                // If in position, equity stays flat for simulation simplicity (or grows/shrinks with price)
+                // For simplified equity curve, we assume capital is fully invested during the trade
+                if (inPosition && i < analysisData.length - 1) {
+                    const priceChange = (analysisData[i+1].price - analysisData[i].price) / analysisData[i].price;
+                    currentEquity = currentEquity * (1 + priceChange);
+                }
+
+                equity.push(currentEquity);
+            }
+
+            // Handle open position at the end of the test
+            if (inPosition) {
+                const finalPrice = analysisData[analysisData.length - 1].price;
+                const profitLossPercent = (finalPrice - lastTradePrice) / lastTradePrice;
+                equity[equity.length - 1] = equity[equity.length - 1] * (1 + profitLossPercent);
+                inPosition = false; // Closed at market close
+            }
+
+            // Pad equity data to match price data length
+            while (equity.length < analysisData.length) {
+                equity.unshift(1000); // Pad with starting capital for initial nulls
+            }
+
+            // Calculate Max Drawdown
+            const equityArray = equity.filter(e => e !== undefined && e !== null);
+            let maxDrawdown = 0;
+            let peak = equityArray[0] || 1000;
+            for(const value of equityArray) {
+                if (value > peak) {
+                    peak = value;
+                }
+                const drawdown = (peak - value) / peak;
+                if (drawdown > maxDrawdown) {
+                    maxDrawdown = drawdown;
+                }
+            }
+
+            const finalEquity = equityArray[equityArray.length - 1] || 1000;
+            const netReturn = (finalEquity - 1000) / 1000;
+
+            return {
+                dates: analysisData.map(d => d.date),
+                prices: analysisData.map(d => d.price),
+                fastEMA: analysisData.map(d => d.fastEMA),
+                slowEMA: analysisData.map(d => d.slowEMA),
+                equity: equity,
+                netReturn: netReturn,
+                maxDrawdown: maxDrawdown,
+                totalTrades: trades,
+                buySignals: buySignals,
+                sellSignals: sellSignals
+            };
+        };
+
+        window.renderChart = (data) => {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+
+            const backgroundColors = data.buySignals.map(signal => ({
+                type: 'point',
+                xValue: signal.x,
+                yValue: signal.y,
+                pointStyle: 'triangle',
+                radius: 7,
+                backgroundColor: 'rgba(16, 185, 129, 0.8)', // Green
+            })).concat(data.sellSignals.map(signal => ({
+                type: 'point',
+                xValue: signal.x,
+                yValue: signal.y,
+                pointStyle: 'triangle',
+                rotation: 180,
+                radius: 7,
+                backgroundColor: 'rgba(239, 68, 68, 0.8)', // Red
+            })));
+
+            const chartData = {
+                labels: data.dates,
+                datasets: [
+                    {
+                        label: 'Price',
+                        data: data.prices,
+                        borderColor: '#9ca3af', // gray-400
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        yAxisID: 'yPrice',
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'Fast EMA',
+                        data: data.fastEMA,
+                        borderColor: '#f59e0b', // Amber (Fast trend)
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        yAxisID: 'yPrice',
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'Slow EMA',
+                        data: data.slowEMA,
+                        borderColor: '#3b82f6', // Blue (Slow trend)
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        yAxisID: 'yPrice',
+                        pointRadius: 0,
+                    },
+                    {
+                        label: 'Equity',
+                        data: data.equity,
+                        borderColor: '#10b981', // Emerald (Equity curve)
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'yEquity',
+                        pointRadius: 0,
+                        fill: 'origin',
+                    },
+                ],
+            };
+
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    yPrice: {
+                        type: 'linear',
+                        display: 'auto',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Price',
+                            color: '#d1d5db'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#d1d5db'
+                        }
+                    },
+                    yEquity: {
+                        type: 'linear',
+                        display: 'auto',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Equity',
+                            color: '#10b981'
+                        },
+                        grid: {
+                            drawOnChartArea: false, // Only draw the grid for the price axis
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#10b981',
+                            callback: function(value) {
+                                return `$${value.toFixed(0)}`;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#d1d5db'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(2);
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    annotation: {
+                        annotations: backgroundColors
+                    }
+                }
+            };
+
+            if (window.priceChart) {
+                window.priceChart.destroy();
+            }
+
+            window.priceChart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: chartOptions,
+                plugins: [{
+                    id: 'annotation',
+                    beforeDraw: (chart) => {
+                        const { ctx, chartArea, scales } = chart;
+                        const annotations = chart.options.plugins.annotation.annotations || [];
+
+                        annotations.forEach(annotation => {
+                            if (annotation.type === 'point') {
+                                const meta = chart.getDatasetMeta(0);
+                                const index = chart.data.labels.findIndex(label => label === annotation.xValue);
+                                
+                                if (index !== -1) {
+                                    const point = meta.data[index];
+
+                                    if (point) {
+                                        ctx.save();
+                                        ctx.fillStyle = annotation.backgroundColor;
+                                        ctx.beginPath();
+                                        // Simple Triangle (Buy/Sell) drawing
+                                        const size = annotation.radius || 7;
+                                        const rotation = annotation.rotation || 0;
+
+                                        ctx.translate(point.x, point.y);
+                                        ctx.rotate(rotation * Math.PI / 180);
+
+                                        ctx.moveTo(0, -size);
+                                        ctx.lineTo(size, size);
+                                        ctx.lineTo(-size, size);
+                                        ctx.closePath();
+                                        ctx.fill();
+                                        ctx.restore();
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }]
+            });
+        };
+
+        window.updateResultsUI = (results) => {
+            const formatPct = (value) => `${(value * 100).toFixed(2)}%`;
+            const netReturnEl = document.getElementById('netReturn');
+            const maxDrawdownEl = document.getElementById('maxDrawdown');
+
+            document.getElementById('totalTrades').textContent = results.totalTrades;
+            netReturnEl.textContent = formatPct(results.netReturn);
+            maxDrawdownEl.textContent = formatPct(results.maxDrawdown);
+
+            netReturnEl.classList.remove('text-green-500', 'text-red-500', 'text-gray-100');
+            maxDrawdownEl.classList.remove('text-green-500', 'text-red-500', 'text-gray-100');
+
+            if (results.netReturn >= 0) {
+                netReturnEl.classList.add('text-green-500');
+            } else {
+                netReturnEl.classList.add('text-red-500');
+            }
+
+            if (results.maxDrawdown < 0.1) { // Low drawdown is 'good'
+                maxDrawdownEl.classList.add('text-green-500');
+            } else if (results.maxDrawdown > 0.3) { // High drawdown is 'bad'
+                maxDrawdownEl.classList.add('text-red-500');
+            } else {
+                maxDrawdownEl.classList.add('text-gray-100');
+            }
+        };
+
+        window.runBacktest = async (fast, slow) => {
+            const T = window.translations[window.currentLang];
+            const ticker = document.getElementById('ticker').value.toUpperCase();
+            const timeframe = document.getElementById('timeframe').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const strategyType = document.getElementById('strategySelect').value;
+            const fastEMA = fast || parseInt(document.getElementById('fastEMA').value);
+            const slowEMA = slow || parseInt(document.getElementById('slowEMA').value);
+            const customCode = document.getElementById('customCodeArea').value;
+
+            // Check Limits
+            let data = {};
+            if (window.userTier !== 'PRO' && window.userTier !== 'ULTRA' && window.currentUserId) {
+                const userDocRef = getUserDocRef(window.currentUserId);
+                if (!userDocRef || typeof getDoc === 'undefined') { // Защита для локальной работы без DB
+                    document.getElementById('statusMessage').textContent = "INFO: Using default FREE limits (Firebase DB required for tracking).";
+                } else {
+                    const docSnap = await getDoc(userDocRef);
+                    data = docSnap.data() || {};
+                    const testsUsed = data.testsUsed || 0;
+
+                    if (testsUsed >= window.maxTests) {
+                        document.getElementById('statusMessage').textContent = T['limit_exceeded'];
+                        const subscriptionMessage = document.getElementById('subscriptionMessage');
+                        if (subscriptionMessage) {
+                            subscriptionMessage.textContent = T['subscription_message_limit'].replace('{limit}', window.maxTests);
+                        }
+                        window.toggleModal('subscriptionModal');
+                        return;
+                    }
+                }
+            }
+
+            document.getElementById('chartLoading').classList.remove('hidden');
+            document.getElementById('statusMessage').textContent = T['loading_data'];
+
+            const rawData = await window.fetchRealData(ticker, timeframe, startDate, endDate);
+
+            document.getElementById('chartLoading').classList.add('hidden');
+
+            if (rawData && rawData.length > 0) {
+                const results = executeStrategy(
+                    rawData,
+                    fastEMA,
+                    slowEMA,
+                    strategyType === 'custom_code' ? customCode : null
+                );
+
+                renderChart(results);
+                updateResultsUI(results);
+
+                document.getElementById('statusMessage').textContent = `${T['run_backtest_button']} ${T['telegram_success'] ? T['telegram_success'].split(':')[0] : 'Completed'}. ${T['tests_remaining_label']}: ${window.maxTests === Infinity ? '∞' : Math.max(0, window.maxTests - (data.testsUsed || 0) - 1)}`;
+
+                // Update Firebase limit only if NOT PRO/ULTRA
+                if (window.userTier !== 'PRO' && window.userTier !== 'ULTRA' && window.currentUserId && userDocRef && typeof updateDoc !== 'undefined') {
+                    updateDoc(userDocRef, { testsUsed: (data.testsUsed || 0) + 1 }).catch(console.error);
+                }
+            } else {
+                // Error message already set by fetchRealData
+            }
+        };
+
+        window.runOptimization = async () => {
+            const T = window.translations[window.currentLang];
+            if (window.userTier !== 'PRO' && window.userTier !== 'ULTRA') {
+                document.getElementById('statusMessage').textContent = T['optimization_disabled'];
+                return;
+            }
+
+            const ticker = document.getElementById('ticker').value.toUpperCase();
+            const timeframe = document.getElementById('timeframe').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            document.getElementById('optimizationLoading').classList.remove('hidden');
+            document.getElementById('optimizationResults').innerHTML = `<li class="text-gray-400">${T['optimizing_status']}</li>`;
+
+            const rawData = await window.fetchRealData(ticker, timeframe, startDate, endDate);
+            document.getElementById('optimizationLoading').classList.add('hidden');
+            if (!rawData) return;
+
+            const optFastMin = parseInt(document.getElementById('optFastMin').value);
+            const optFastMax = parseInt(document.getElementById('optFastMax').value);
+            const optSlowMin = parseInt(document.getElementById('optSlowMin').value);
+            const optSlowMax = parseInt(document.getElementById('optSlowMax').value);
+            const optStep = parseInt(document.getElementById('optStep').value);
+            
+            const allResults = [];
+            for (let fast = optFastMin; fast <= optFastMax; fast += optStep) {
+                for (let slow = optSlowMin; slow <= optSlowMax; slow += optStep) {
+                    if (slow <= fast) continue; // Slow period must be larger than Fast period
+
+                    const results = executeStrategy(rawData, fast, slow);
+                    
+                    allResults.push({
+                        fast: fast,
+                        slow: slow,
+                        netReturn: results.netReturn,
+                        maxDrawdown: results.maxDrawdown,
+                        totalTrades: results.totalTrades
+                    });
+                }
+            }
+
+            // Sort by Net Return (highest first)
+            allResults.sort((a, b) => b.netReturn - a.netReturn);
+            const top3 = allResults.slice(0, 3);
+            
+            const resultsList = document.getElementById('optimizationResults');
+            resultsList.innerHTML = '';
+
+            if (top3.length === 0) {
+                resultsList.innerHTML = `<li class="text-red-400">${T['optimization_placeholder']}</li>`;
+                return;
+            }
+
+            top3.forEach((result, index) => {
+                const li = document.createElement('li');
+                li.className = `p-2 rounded-md cursor-pointer hover:bg-gray-700 transition duration-150 ${(index === 0) ? 'border border-accent' : ''}`;
+                li.innerHTML = `
+                    <span class="font-bold">#${index + 1}:</span> Fast: ${result.fast}, Slow: ${result.slow} | Return: <span class="${result.netReturn >= 0 ? 'text-green-400' : 'text-red-400'}">${(result.netReturn * 100).toFixed(2)}%</span> | Drawdown: ${(result.maxDrawdown * 100).toFixed(2)}%
+                `;
+                li.onclick = () => {
+                    document.getElementById('fastEMA').value = result.fast;
+                    document.getElementById('slowEMA').value = result.slow;
+                    window.toggleModal('optimizationModal');
+                    document.getElementById('statusMessage').textContent = T['status_initial'];
+                };
+                resultsList.appendChild(li);
+            });
+            
+            document.getElementById('statusMessage').textContent = T['optimizing_status'].replace('Running combinations...', T['top_results_title']);
+        };
+
+        window.sendTelegramSignal = async (ticker, action) => {
+            const T = window.translations[window.currentLang];
+            const token = document.getElementById('telegramToken').value;
+            const chatId = document.getElementById('telegramChatId').value;
+
+            if (!token || !chatId) return; // Silent return if not configured
+
+            let message;
+            if (action === 'BUY') {
+                message = T['telegram_buy'].replace('{ticker}', ticker);
+            } else if (action === 'SELL') {
+                message = T['telegram_sell'].replace('{ticker}', ticker);
+            } else {
+                message = `[TEST] AlgoVizor: ${action} - ${ticker}`;
+            }
+
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+            const payload = {
+                chat_id: chatId,
+                text: message,
+                parse_mode: 'Markdown'
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+
+                if (result.ok) {
+                    if (action === 'Test') document.getElementById('statusMessage').textContent = T['telegram_success'];
+                } else {
+                    if (action === 'Test') document.getElementById('statusMessage').textContent = `${T['telegram_error']}: ${result.description}`;
+                }
+
+            } catch (error) {
+                if (action === 'Test') document.getElementById('statusMessage').textContent = `${T['telegram_error']}: Network Error`;
+                console.error("Telegram Send Error:", error);
+            }
+        };
+
+        // --- Main Initialization Logic ---
+
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ FIREBASE (Теперь с реальными ключами)
+        const __app_id = '1:530996092270:web:1996a841416cc556c1ef57f'; // Ваш реальный appId
+        const __firebase_config = JSON.stringify({
+            apiKey: "AIzaSyBpXKHkHL0pNiI8qem-YD8IHbVmuNBP4",
+            authDomain: "algovizor-prod.firebaseapp.com",
+            projectId: "algovizor-prod",
+            storageBucket: "algovizor-prod.appspot.com",
+            messagingSenderId: "530996092270",
+            appId: "1:530996092270:web:1996a841416cc556c1ef57f",
+            measurementId: "G-4VMHSWF98N"
+        });
+        const __initial_auth_token = null;
+
+        // Firebase Initialization
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        
+        let app, db, auth;
+
+        if (typeof firebase !== 'undefined' && typeof firebase.initializeApp !== 'undefined') {
+            app = firebaseConfig ? firebase.initializeApp(firebaseConfig) : null;
+            db = app ? firebase.firestore().getFirestore(app) : null;
+            auth = app ? firebase.auth().getAuth(app) : null;
+        } else {
+             // Fallback, если SDKs не загрузились
+             console.error("Firebase global object not found. Ensure SDKs are loaded in <head>.");
+        }
+
+
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.currentUserId = null;
+        window.userTier = 'FREE'; // Default
+        window.maxTests = 3;
+
+        // Utility to get the user-specific document path
+        const getUserDocRef = (userId) => {
+            if (!db || typeof doc === 'undefined') return null;
+            return doc(db, `artifacts/${appId}/users/${userId}/limits`, 'daily_usage');
+        };
+
+        // --- Запуск аутентификации после инициализации Firebase ---
+        if (auth && typeof firebase.auth().onAuthStateChanged !== 'undefined') {
+            firebase.auth().onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    window.currentUserId = user.uid;
+                    document.getElementById('userIdDisplay').textContent = user.uid.substring(0, 10) + '...';
+                    document.getElementById('accountUserId').textContent = user.uid;
+                    setupUserListener(user.uid);
+                } else {
+                    firebase.auth().signInAnonymously(auth).then(cred => {
+                        window.currentUserId = cred.user.uid;
+                        document.getElementById('userIdDisplay').textContent = cred.user.uid.substring(0, 10) + '...';
+                        document.getElementById('accountUserId').textContent = cred.user.uid;
+                        setupUserListener(cred.user.uid);
+                    }).catch(error => {
+                        console.error("Anonymous Sign-in Error:", error);
+                        document.getElementById('statusMessage').textContent = "ERROR: Anonymous sign-in failed.";
+                    });
+                }
+            });
+        } else {
+             // Если Firebase не инициализирован, используем лимиты FREE по умолчанию
+             window.updateUIBasedOnTier('FREE', 0);
+             document.getElementById('userIdDisplay').textContent = "LOCAL_USER";
+             document.getElementById('accountUserId').textContent = "LOCAL_USER";
+        }
+
+        // --- Гарантированный Запуск инициализации UI ---
+        document.addEventListener('DOMContentLoaded', () => {
+            window.setLanguage('ru');
+            window.initDatePickers();
+            window.loadPricingContent();
+        });
+        
+    </script>
+</body>
+</html>
