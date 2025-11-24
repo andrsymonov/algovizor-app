@@ -1,11 +1,9 @@
-server {
-    listen 80;
-    server_name localhost;
+# Используем официальный образ Nginx для обслуживания статики
+FROM nginx:alpine
 
-    root /usr/share/nginx/html;
-    index index.html;
+# Удаляем стандартный индексный файл (чтобы наш index.html был главным)
+RUN rm /usr/share/nginx/html/index.html
 
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
+# Копируем ваш index.html и pricing_page.md в папку Nginx для статического контента
+COPY index.html /usr/share/nginx/html/
+COPY pricing_page.md /usr/share/nginx/html/
