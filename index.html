@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AlgoVizor - Backtesting & Optimization</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 
@@ -390,109 +391,81 @@
         });
         const __initial_auth_token = null;
 
-        // --- FIREBASE IMPORTS (для обычного скрипта, загружаются в начале) ---
-        // Эти URLS мы берем из документации Firebase SDK
-        const FIREBASE_APP_URL = "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        const FIREBASE_AUTH_URL = "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        const FIREBASE_FIRESTORE_URL = "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // --- ВСЕ ФУНКЦИИ И ЛОГИКА ОПРЕДЕЛЯЮТСЯ ЗДЕСЬ ---
 
-        // Функция для динамической загрузки скриптов
-        const loadScript = (url) => {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = url;
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        };
-
-        let initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot;
         let app, db, auth;
 
-        // Основная функция инициализации, которая ждет загрузки всех скриптов
-        async function initializeFirebaseAndUI() {
-            try {
-                // Загружаем все необходимые скрипты
-                await loadScript(FIREBASE_APP_URL);
-                await loadScript(FIREBASE_AUTH_URL);
-                await loadScript(FIREBASE_FIRESTORE_URL);
-
-                // Получаем глобальные переменные и функции после загрузки скриптов
-                // (Эти функции становятся доступны в window.firebase после загрузки SDK)
-                initializeApp = window.firebase.initializeApp;
-                getAuth = window.firebase.auth.getAuth;
-                signInAnonymously = window.firebase.auth.signInAnonymously;
-                onAuthStateChanged = window.firebase.auth.onAuthStateChanged;
-                getFirestore = window.firebase.firestore.getFirestore;
-                doc = window.firebase.firestore.doc;
-                getDoc = window.firebase.firestore.getDoc;
-                setDoc = window.firebase.firestore.setDoc;
-                updateDoc = window.firebase.firestore.updateDoc;
-                onSnapshot = window.firebase.firestore.onSnapshot;
-
-
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-                
-                if (!firebaseConfig) {
-                    console.error("Firebase configuration is missing.");
-                    document.getElementById('statusMessage').textContent = "ERROR: Firebase config missing.";
-                }
-
-                app = firebaseConfig ? initializeApp(firebaseConfig) : null;
-                db = app ? getFirestore(app) : null;
-                auth = app ? getAuth(app) : null;
-
-                window.db = db;
-                window.auth = auth;
-                window.appId = appId;
-                window.currentUserId = null;
-                window.userTier = 'FREE'; // Default
-                window.maxTests = 3;
-
-                // --- Запуск аутентификации после инициализации Firebase ---
-                if (auth) {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            window.currentUserId = user.uid;
-                            document.getElementById('userIdDisplay').textContent = user.uid.substring(0, 10) + '...';
-                            document.getElementById('accountUserId').textContent = user.uid;
-                            setupUserListener(user.uid);
-                        } else {
-                            signInAnonymously(auth).then(cred => {
-                                window.currentUserId = cred.user.uid;
-                                document.getElementById('userIdDisplay').textContent = cred.user.uid.substring(0, 10) + '...';
-                                document.getElementById('accountUserId').textContent = cred.user.uid;
-                                setupUserListener(cred.user.uid);
-                            }).catch(error => {
-                                console.error("Anonymous Sign-in Error:", error);
-                                document.getElementById('statusMessage').textContent = "ERROR: Anonymous sign-in failed.";
-                            });
-                        }
-                    });
-                } else {
-                    // Если Firebase не инициализирован, используем лимиты FREE по умолчанию
-                    updateUIBasedOnTier('FREE', 0);
-                    document.getElementById('userIdDisplay').textContent = "LOCAL_USER";
-                    document.getElementById('accountUserId').textContent = "LOCAL_USER";
-                }
-
-            } catch (error) {
-                console.error("Fatal Firebase Initialization Error:", error);
-                document.getElementById('statusMessage').textContent = "ERROR: Could not load Firebase SDKs. Check your network or configuration.";
+        // Инициализация Firebase, используя глобальные объекты, загруженные в <head>
+        // Мы используем document.addEventListener('DOMContentLoaded') для запуска этой логики
+        function initializeAppAndAuth() {
+            
+            if (typeof firebase === 'undefined' || typeof firebase.initializeApp === 'undefined') {
+                console.error("CRITICAL: Firebase SDK not loaded in <head>. Cannot initialize.");
+                window.updateUIBasedOnTier('FREE', 0); // Fallback
+                return;
             }
 
-            // --- Гарантированный Запуск инициализации UI ---
-            window.setLanguage('ru');
-            window.initDatePickers();
-            window.loadPricingContent();
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            
+            if (!firebaseConfig) {
+                console.error("Firebase configuration is missing.");
+            }
+
+            // Инициализация App, DB, Auth
+            window.app = firebaseConfig ? firebase.initializeApp(firebaseConfig) : null;
+            
+            // Проверка, что модули Firestore/Auth доступны после инициализации App
+            if (window.app) {
+                if (typeof window.app.firestore === 'function') {
+                    window.db = window.app.firestore();
+                }
+                if (typeof window.app.auth === 'function') {
+                    window.auth = window.app.auth();
+                }
+            }
+
+            window.db = window.db || null;
+            window.auth = window.auth || null;
+            window.appId = appId;
+            window.currentUserId = null;
+            window.userTier = 'FREE'; // Default
+            window.maxTests = 3;
+
+            // --- Запуск аутентификации ---
+            if (window.auth && typeof window.auth.onAuthStateChanged === 'function') {
+                window.auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        window.currentUserId = user.uid;
+                        document.getElementById('userIdDisplay').textContent = user.uid.substring(0, 10) + '...';
+                        document.getElementById('accountUserId').textContent = user.uid;
+                        setupUserListener(user.uid);
+                    } else {
+                        window.auth.signInAnonymously().then(cred => {
+                            window.currentUserId = cred.user.uid;
+                            document.getElementById('userIdDisplay').textContent = cred.user.uid.substring(0, 10) + '...';
+                            document.getElementById('accountUserId').textContent = cred.user.uid;
+                            setupUserListener(cred.user.uid);
+                        }).catch(error => {
+                            console.error("Anonymous Sign-in Error:", error);
+                            document.getElementById('statusMessage').textContent = "ERROR: Anonymous sign-in failed.";
+                        });
+                    }
+                });
+            } else {
+                 // Если Firebase не инициализирован, используем лимиты FREE по умолчанию
+                 window.updateUIBasedOnTier('FREE', 0);
+                 document.getElementById('userIdDisplay').textContent = "LOCAL_USER";
+                 document.getElementById('accountUserId').textContent = "LOCAL_USER";
+            }
         }
+
 
         // Utility to get the user-specific document path
         const getUserDocRef = (userId) => {
-            if (!db || typeof doc === 'undefined') return null; // Защита от отсутствия DB
-            return doc(db, `artifacts/${appId}/users/${userId}/limits`, 'daily_usage');
+            if (!window.db) return null;
+            // Использование v8 синтаксиса для Firestore
+            return window.db.collection('artifacts').doc(window.appId).collection('users').doc(userId).collection('limits').doc('daily_usage');
         };
 
         // --- TRANSLATIONS (i18n) ---
@@ -621,8 +594,31 @@
             }
         };
 
-        const setupUserListener = (userId) => {
-            if (!auth || !db || typeof getDoc === 'undefined') {
+        window.setLanguage = (lang) => {
+            window.currentLang = lang;
+            const elements = document.querySelectorAll('[data-i18n]');
+            const T = window.translations[lang];
+            elements.forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (T[key]) {
+                    el.textContent = T[key];
+                }
+            });
+
+            // Update disabled option text
+            const customCodeOption = document.getElementById('strategySelect').querySelector('option[value="custom_code"]');
+            if (customCodeOption) {
+                customCodeOption.textContent = T['custom_code_option'];
+            }
+            // Update Chart labels if it exists
+            if (window.priceChart) {
+                window.priceChart.options.scales.y.title.text = T['chart_title_y_axis'] || 'Price / Equity';
+                window.priceChart.update();
+            }
+        };
+
+        window.setupUserListener = (userId) => {
+            if (!window.auth || !window.db || typeof window.db.getDoc === 'undefined') {
                  document.getElementById('statusMessage').textContent = "INFO: Firebase is not fully initialized. Using default FREE limits.";
                  return;
             }
@@ -630,20 +626,20 @@
             if (!userDocRef) return; // Дополнительная проверка
 
             // Initial check and setup if document doesn't exist
-            getDoc(userDocRef).then(docSnap => {
-                if (!docSnap.exists()) {
+            window.db.collection('artifacts').doc(window.appId).collection('users').doc(userId).collection('limits').doc('daily_usage').get().then(docSnap => {
+                if (!docSnap.exists) {
                     // Initialize the document for a new user
                     const initialData = {
                         tier: 'FREE',
                         testsUsed: 0,
                         lastReset: new Date().toISOString()
                     };
-                    return setDoc(userDocRef, initialData).then(() => initialData);
+                    return window.db.collection('artifacts').doc(window.appId).collection('users').doc(userId).collection('limits').doc('daily_usage').set(initialData).then(() => initialData);
                 }
                 return docSnap.data();
             }).then(data => {
                 // Now set up the real-time listener
-                onSnapshot(userDocRef, (doc) => {
+                window.db.collection('artifacts').doc(window.appId).collection('users').doc(userId).collection('limits').doc('daily_usage').onSnapshot((doc) => {
                     const data = doc.data();
                     if (!data) return;
 
@@ -656,10 +652,10 @@
                     if (isNewDay && tier !== 'PRO' && tier !== 'ULTRA') {
                         // Reset count for FREE/STANDARD users
                         testsUsed = 0;
-                        updateDoc(userDocRef, { testsUsed: 0, lastReset: new Date().toISOString() }).catch(console.error);
+                        window.db.collection('artifacts').doc(window.appId).collection('users').doc(userId).collection('limits').doc('daily_usage').update({ testsUsed: 0, lastReset: new Date().toISOString() }).catch(console.error);
                     } else if (isNewDay && (tier === 'PRO' || tier === 'ULTRA')) {
                         // Just update reset time for PRO/ULTRA without changing count (always Infinity)
-                        updateDoc(userDocRef, { lastReset: new Date().toISOString() }).catch(console.error);
+                        window.db.collection('artifacts').doc(window.appId).collection('users').doc(userId).collection('limits').doc('daily_usage').update({ lastReset: new Date().toISOString() }).catch(console.error);
                     }
 
                     updateUIBasedOnTier(tier, testsUsed);
@@ -1173,338 +1169,4 @@
                 }
             };
 
-            if (window.priceChart) {
-                window.priceChart.destroy();
-            }
-
-            window.priceChart = new Chart(ctx, {
-                type: 'line',
-                data: chartData,
-                options: chartOptions,
-                plugins: [{
-                    id: 'annotation',
-                    beforeDraw: (chart) => {
-                        const { ctx, chartArea, scales } = chart;
-                        const annotations = chart.options.plugins.annotation.annotations || [];
-
-                        annotations.forEach(annotation => {
-                            if (annotation.type === 'point') {
-                                const meta = chart.getDatasetMeta(0);
-                                const index = chart.data.labels.findIndex(label => label === annotation.xValue);
-                                
-                                if (index !== -1) {
-                                    const point = meta.data[index];
-
-                                    if (point) {
-                                        ctx.save();
-                                        ctx.fillStyle = annotation.backgroundColor;
-                                        ctx.beginPath();
-                                        // Simple Triangle (Buy/Sell) drawing
-                                        const size = annotation.radius || 7;
-                                        const rotation = annotation.rotation || 0;
-
-                                        ctx.translate(point.x, point.y);
-                                        ctx.rotate(rotation * Math.PI / 180);
-
-                                        ctx.moveTo(0, -size);
-                                        ctx.lineTo(size, size);
-                                        ctx.lineTo(-size, size);
-                                        ctx.closePath();
-                                        ctx.fill();
-                                        ctx.restore();
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }]
-            });
-        };
-
-        window.updateResultsUI = (results) => {
-            const formatPct = (value) => `${(value * 100).toFixed(2)}%`;
-            const netReturnEl = document.getElementById('netReturn');
-            const maxDrawdownEl = document.getElementById('maxDrawdown');
-
-            document.getElementById('totalTrades').textContent = results.totalTrades;
-            netReturnEl.textContent = formatPct(results.netReturn);
-            maxDrawdownEl.textContent = formatPct(results.maxDrawdown);
-
-            netReturnEl.classList.remove('text-green-500', 'text-red-500', 'text-gray-100');
-            maxDrawdownEl.classList.remove('text-green-500', 'text-red-500', 'text-gray-100');
-
-            if (results.netReturn >= 0) {
-                netReturnEl.classList.add('text-green-500');
-            } else {
-                netReturnEl.classList.add('text-red-500');
-            }
-
-            if (results.maxDrawdown < 0.1) { // Low drawdown is 'good'
-                maxDrawdownEl.classList.add('text-green-500');
-            } else if (results.maxDrawdown > 0.3) { // High drawdown is 'bad'
-                maxDrawdownEl.classList.add('text-red-500');
-            } else {
-                maxDrawdownEl.classList.add('text-gray-100');
-            }
-        };
-
-        window.runBacktest = async (fast, slow) => {
-            const T = window.translations[window.currentLang];
-            const ticker = document.getElementById('ticker').value.toUpperCase();
-            const timeframe = document.getElementById('timeframe').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const strategyType = document.getElementById('strategySelect').value;
-            const fastEMA = fast || parseInt(document.getElementById('fastEMA').value);
-            const slowEMA = slow || parseInt(document.getElementById('slowEMA').value);
-            const customCode = document.getElementById('customCodeArea').value;
-
-            // Check Limits
-            let data = {};
-            if (window.userTier !== 'PRO' && window.userTier !== 'ULTRA' && window.currentUserId) {
-                const userDocRef = getUserDocRef(window.currentUserId);
-                if (!userDocRef || typeof getDoc === 'undefined') { // Защита для локальной работы без DB
-                    document.getElementById('statusMessage').textContent = "INFO: Using default FREE limits (Firebase DB required for tracking).";
-                } else {
-                    const docSnap = await getDoc(userDocRef);
-                    data = docSnap.data() || {};
-                    const testsUsed = data.testsUsed || 0;
-
-                    if (testsUsed >= window.maxTests) {
-                        document.getElementById('statusMessage').textContent = T['limit_exceeded'];
-                        const subscriptionMessage = document.getElementById('subscriptionMessage');
-                        if (subscriptionMessage) {
-                            subscriptionMessage.textContent = T['subscription_message_limit'].replace('{limit}', window.maxTests);
-                        }
-                        window.toggleModal('subscriptionModal');
-                        return;
-                    }
-                }
-            }
-
-            document.getElementById('chartLoading').classList.remove('hidden');
-            document.getElementById('statusMessage').textContent = T['loading_data'];
-
-            const rawData = await window.fetchRealData(ticker, timeframe, startDate, endDate);
-
-            document.getElementById('chartLoading').classList.add('hidden');
-
-            if (rawData && rawData.length > 0) {
-                const results = executeStrategy(
-                    rawData,
-                    fastEMA,
-                    slowEMA,
-                    strategyType === 'custom_code' ? customCode : null
-                );
-
-                renderChart(results);
-                updateResultsUI(results);
-
-                document.getElementById('statusMessage').textContent = `${T['run_backtest_button']} ${T['telegram_success'] ? T['telegram_success'].split(':')[0] : 'Completed'}. ${T['tests_remaining_label']}: ${window.maxTests === Infinity ? '∞' : Math.max(0, window.maxTests - (data.testsUsed || 0) - 1)}`;
-
-                // Update Firebase limit only if NOT PRO/ULTRA
-                if (window.userTier !== 'PRO' && window.userTier !== 'ULTRA' && window.currentUserId && userDocRef && typeof updateDoc !== 'undefined') {
-                    updateDoc(userDocRef, { testsUsed: (data.testsUsed || 0) + 1 }).catch(console.error);
-                }
-            } else {
-                // Error message already set by fetchRealData
-            }
-        };
-
-        window.runOptimization = async () => {
-            const T = window.translations[window.currentLang];
-            if (window.userTier !== 'PRO' && window.userTier !== 'ULTRA') {
-                document.getElementById('statusMessage').textContent = T['optimization_disabled'];
-                return;
-            }
-
-            const ticker = document.getElementById('ticker').value.toUpperCase();
-            const timeframe = document.getElementById('timeframe').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-
-            document.getElementById('optimizationLoading').classList.remove('hidden');
-            document.getElementById('optimizationResults').innerHTML = `<li class="text-gray-400">${T['optimizing_status']}</li>`;
-
-            const rawData = await window.fetchRealData(ticker, timeframe, startDate, endDate);
-            document.getElementById('optimizationLoading').classList.add('hidden');
-            if (!rawData) return;
-
-            const optFastMin = parseInt(document.getElementById('optFastMin').value);
-            const optFastMax = parseInt(document.getElementById('optFastMax').value);
-            const optSlowMin = parseInt(document.getElementById('optSlowMin').value);
-            const optSlowMax = parseInt(document.getElementById('optSlowMax').value);
-            const optStep = parseInt(document.getElementById('optStep').value);
-            
-            const allResults = [];
-            for (let fast = optFastMin; fast <= optFastMax; fast += optStep) {
-                for (let slow = optSlowMin; slow <= optSlowMax; slow += optStep) {
-                    if (slow <= fast) continue; // Slow period must be larger than Fast period
-
-                    const results = executeStrategy(rawData, fast, slow);
-                    
-                    allResults.push({
-                        fast: fast,
-                        slow: slow,
-                        netReturn: results.netReturn,
-                        maxDrawdown: results.maxDrawdown,
-                        totalTrades: results.totalTrades
-                    });
-                }
-            }
-
-            // Sort by Net Return (highest first)
-            allResults.sort((a, b) => b.netReturn - a.netReturn);
-            const top3 = allResults.slice(0, 3);
-            
-            const resultsList = document.getElementById('optimizationResults');
-            resultsList.innerHTML = '';
-
-            if (top3.length === 0) {
-                resultsList.innerHTML = `<li class="text-red-400">${T['optimization_placeholder']}</li>`;
-                return;
-            }
-
-            top3.forEach((result, index) => {
-                const li = document.createElement('li');
-                li.className = `p-2 rounded-md cursor-pointer hover:bg-gray-700 transition duration-150 ${(index === 0) ? 'border border-accent' : ''}`;
-                li.innerHTML = `
-                    <span class="font-bold">#${index + 1}:</span> Fast: ${result.fast}, Slow: ${result.slow} | Return: <span class="${result.netReturn >= 0 ? 'text-green-400' : 'text-red-400'}">${(result.netReturn * 100).toFixed(2)}%</span> | Drawdown: ${(result.maxDrawdown * 100).toFixed(2)}%
-                `;
-                li.onclick = () => {
-                    document.getElementById('fastEMA').value = result.fast;
-                    document.getElementById('slowEMA').value = result.slow;
-                    window.toggleModal('optimizationModal');
-                    document.getElementById('statusMessage').textContent = T['status_initial'];
-                };
-                resultsList.appendChild(li);
-            });
-            
-            document.getElementById('statusMessage').textContent = T['optimizing_status'].replace('Running combinations...', T['top_results_title']);
-        };
-
-        window.sendTelegramSignal = async (ticker, action) => {
-            const T = window.translations[window.currentLang];
-            const token = document.getElementById('telegramToken').value;
-            const chatId = document.getElementById('telegramChatId').value;
-
-            if (!token || !chatId) return; // Silent return if not configured
-
-            let message;
-            if (action === 'BUY') {
-                message = T['telegram_buy'].replace('{ticker}', ticker);
-            } else if (action === 'SELL') {
-                message = T['telegram_sell'].replace('{ticker}', ticker);
-            } else {
-                message = `[TEST] AlgoVizor: ${action} - ${ticker}`;
-            }
-
-            const url = `https://api.telegram.org/bot${token}/sendMessage`;
-            const payload = {
-                chat_id: chatId,
-                text: message,
-                parse_mode: 'Markdown'
-            };
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                const result = await response.json();
-
-                if (result.ok) {
-                    if (action === 'Test') document.getElementById('statusMessage').textContent = T['telegram_success'];
-                } else {
-                    if (action === 'Test') document.getElementById('statusMessage').textContent = `${T['telegram_error']}: ${result.description}`;
-                }
-
-            } catch (error) {
-                if (action === 'Test') document.getElementById('statusMessage').textContent = `${T['telegram_error']}: Network Error`;
-                console.error("Telegram Send Error:", error);
-            }
-        };
-
-        // --- Main Initialization Logic ---
-
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ FIREBASE (Теперь с реальными ключами)
-        const __app_id = '1:530996092270:web:1996a841416cc556c1ef57f'; // Ваш реальный appId
-        const __firebase_config = JSON.stringify({
-            apiKey: "AIzaSyBpXKHkHL0pNiI8qem-YD8IHbVmuNBP4",
-            authDomain: "algovizor-prod.firebaseapp.com",
-            projectId: "algovizor-prod",
-            storageBucket: "algovizor-prod.appspot.com",
-            messagingSenderId: "530996092270",
-            appId: "1:530996092270:web:1996a841416cc556c1ef57f",
-            measurementId: "G-4VMHSWF98N"
-        });
-        const __initial_auth_token = null;
-
-        // Firebase Initialization
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        
-        let app, db, auth;
-
-        if (typeof firebase !== 'undefined' && typeof firebase.initializeApp !== 'undefined') {
-            app = firebaseConfig ? firebase.initializeApp(firebaseConfig) : null;
-            db = app ? firebase.firestore().getFirestore(app) : null;
-            auth = app ? firebase.auth().getAuth(app) : null;
-        } else {
-             // Fallback, если SDKs не загрузились
-             console.error("Firebase global object not found. Ensure SDKs are loaded in <head>.");
-        }
-
-
-        window.db = db;
-        window.auth = auth;
-        window.appId = appId;
-        window.currentUserId = null;
-        window.userTier = 'FREE'; // Default
-        window.maxTests = 3;
-
-        // Utility to get the user-specific document path
-        const getUserDocRef = (userId) => {
-            if (!db || typeof doc === 'undefined') return null;
-            return doc(db, `artifacts/${appId}/users/${userId}/limits`, 'daily_usage');
-        };
-
-        // --- Запуск аутентификации после инициализации Firebase ---
-        if (auth && typeof firebase.auth().onAuthStateChanged !== 'undefined') {
-            firebase.auth().onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    window.currentUserId = user.uid;
-                    document.getElementById('userIdDisplay').textContent = user.uid.substring(0, 10) + '...';
-                    document.getElementById('accountUserId').textContent = user.uid;
-                    setupUserListener(user.uid);
-                } else {
-                    firebase.auth().signInAnonymously(auth).then(cred => {
-                        window.currentUserId = cred.user.uid;
-                        document.getElementById('userIdDisplay').textContent = cred.user.uid.substring(0, 10) + '...';
-                        document.getElementById('accountUserId').textContent = cred.user.uid;
-                        setupUserListener(cred.user.uid);
-                    }).catch(error => {
-                        console.error("Anonymous Sign-in Error:", error);
-                        document.getElementById('statusMessage').textContent = "ERROR: Anonymous sign-in failed.";
-                    });
-                }
-            });
-        } else {
-             // Если Firebase не инициализирован, используем лимиты FREE по умолчанию
-             window.updateUIBasedOnTier('FREE', 0);
-             document.getElementById('userIdDisplay').textContent = "LOCAL_USER";
-             document.getElementById('accountUserId').textContent = "LOCAL_USER";
-        }
-
-        // --- Гарантированный Запуск инициализации UI ---
-        document.addEventListener('DOMContentLoaded', () => {
-            window.setLanguage('ru');
-            window.initDatePickers();
-            window.loadPricingContent();
-        });
-        
-    </script>
-</body>
-</html>
+            if (window.priceChart
